@@ -149,6 +149,12 @@ a {
   box-shadow: var(--zf-shadow-lg) !important;
   border-color: rgba(47, 107, 255, 0.35);
 }
+.zf-hover-card:hover .zf-platform-icon {
+  background: rgba(47, 107, 255, 0.18) !important;
+}
+.zf-hover-card:hover .zf-platform-icon img {
+  filter: brightness(0) saturate(100%) invert(34%) sepia(93%) saturate(1352%) hue-rotate(213deg) brightness(100%) contrast(101%);
+}
 
 .zf-history-item {
   transition: background 0.2s ease;

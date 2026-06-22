@@ -231,8 +231,8 @@ export default function Home() {
           {platformCards.map((p) => (
             <Col xs={12} md={6} key={p.title}>
               <Card className="zf-hover-card" styles={{ body: { padding: 22, display: 'flex', alignItems: 'center', gap: 16 } }} style={{ borderRadius: 16 }} onClick={() => navigate(p.to)}>
-                <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(47,107,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <img src={p.icon} alt={p.title} style={{ width: 26, height: 26 }} />
+                <div className="zf-platform-icon" style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(47,107,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.28s ease' }}>
+                  <img src={p.icon} alt={p.title} style={{ width: 26, height: 26, transition: 'filter 0.28s ease' }} />
                 </div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 16 }}>{p.title}</div>
