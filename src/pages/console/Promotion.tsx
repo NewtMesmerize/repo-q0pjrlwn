@@ -150,15 +150,21 @@ export default function Promotion() {
     <div>
       {ctx}
       <div className="zf-section-title" style={{ marginBottom: 20 }}>我的推广</div>
-      <Row gutter={16}>
-        <Col xs={24} md={14}>
-          <Card style={{ marginBottom: 16 }}>
+      <Card style={{ marginBottom: 16 }}>
+        <Row gutter={24} align="middle">
+          <Col flex="auto">
             <Row gutter={16}>
               <Col span={8}><Statistic title="累计推广人数" value={mockUsers.length} suffix="人" valueStyle={{ color: '#2f6bff' }} /></Col>
               <Col span={8}><Statistic title="已下单人数" value={mockOrders.filter((o) => o.orderStatus === 1).length} suffix="人" valueStyle={{ color: '#52c41a' }} /></Col>
               <Col span={8}><Statistic title="累计消费" value={mockUsers.reduce((s, u) => s + u.totalConsume, 0)} prefix="¥" valueStyle={{ color: '#ff4d4f' }} /></Col>
             </Row>
-            <Divider />
+          </Col>
+        </Row>
+      </Card>
+
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col xs={24} md={8}>
+          <Card style={{ height: '100%' }}>
             <div style={{ marginBottom: 14 }}>
               <div style={{ color: '#8a93a0', marginBottom: 6 }}>我的推广码</div>
               <Input
@@ -166,7 +172,6 @@ export default function Promotion() {
                 readOnly
                 size="large"
                 addonAfter={<span style={{ cursor: 'pointer' }} onClick={() => copy(currentUser.inviteCode)}><CopyOutlined /> 复制</span>}
-                style={{ maxWidth: 320 }}
               />
             </div>
             <div>
@@ -179,13 +184,15 @@ export default function Promotion() {
             </div>
           </Card>
         </Col>
-        <Col xs={24} md={10}>
-          <Card title="推广二维码" style={{ textAlign: 'center', marginBottom: 16 }}>
-            <QRCode value={currentUser.inviteLink} size={200} style={{ margin: '0 auto' }} />
-            <p style={{ color: '#8a93a0', marginTop: 12 }}>扫码或分享链接，好友注册下单即可绑定推广关系</p>
+        <Col xs={24} md={8}>
+          <Card style={{ textAlign: 'center', height: '100%' }}>
+            <QRCode value={currentUser.inviteLink} size={160} style={{ margin: '0 auto' }} />
+            <p style={{ color: '#8a93a0', marginTop: 10, marginBottom: 10, fontSize: 13 }}>扫码或分享链接，好友注册即可绑定推广关系</p>
             <Button type="primary" onClick={() => copy(currentUser.inviteLink)}>复制链接分享</Button>
           </Card>
-          <Card title="推广规则说明">
+        </Col>
+        <Col xs={24} md={8}>
+          <Card title="推广规则说明" style={{ height: '100%' }}>
             <p style={{ color: '#4b5563', lineHeight: 1.9 }}>1. 好友通过您分享的链接或扫码注册，即可绑定推广关系。</p>
             <p style={{ color: '#4b5563', lineHeight: 1.9 }}>2. 推广成功后，用户下单购买产品为您发放奖励，具体奖励规则咨询平台客服。</p>
           </Card>
