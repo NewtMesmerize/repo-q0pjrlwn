@@ -294,6 +294,7 @@ export default function Home() {
         footer={null}
         destroyOnClose
         width={480}
+        centered
       >
         <p style={{ color: '#8a93a0', margin: '0 0 20px' }}>提交需求，专家将尽快与您联系。</p>
         <Form form={modalForm} layout="vertical" onFinish={handleConsultSubmit} requiredMark={false}>
