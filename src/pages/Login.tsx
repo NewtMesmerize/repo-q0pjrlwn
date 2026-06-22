@@ -174,10 +174,13 @@ export default function Login() {
 
           {/* trust badges */}
           <div style={{ marginTop: 24, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <span className="zf-chip">司法区块链存证</span>
-            <span className="zf-chip">权威实名认证</span>
-            <span className="zf-chip">一裁终局</span>
-            <span className="zf-chip">全国执行力</span>
+            {['司法区块链存证', '权威实名认证', '一裁终局', '全国执行力'].map((t) => (
+              <span key={t} style={{
+                display: 'inline-flex', alignItems: 'center', padding: '6px 14px',
+                borderRadius: 999, fontSize: 13, fontWeight: 600,
+                background: 'rgba(47,107,255,0.1)', border: '1px solid rgba(47,107,255,0.2)', color: '#2451c7',
+              }}>{t}</span>
+            ))}
           </div>
         </div>
       </div>
