@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Row, Col, Card, Statistic, Input, Button, QRCode, Table, Tag, message, Divider, Tabs, Avatar, Tooltip, Modal, Radio, Space } from 'antd';
-import { CopyOutlined, EyeOutlined, EyeInvisibleOutlined, UserOutlined, ShopOutlined, DownloadOutlined, PictureOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
+import { CopyOutlined, EyeOutlined, EyeInvisibleOutlined, UserOutlined, ShopOutlined, DownloadOutlined, PictureOutlined, LeftOutlined, RightOutlined, SearchOutlined } from '@ant-design/icons';
 import { currentUser } from '../../mock/data';
 
 const posterColors: string[][] = [
@@ -47,6 +47,7 @@ export default function Promotion() {
   const [posterIndex, setPosterIndex] = useState(0);
   const [posterImages, setPosterImages] = useState<string[]>([]);
   const [posterGenerating, setPosterGenerating] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState('');
 
   const copy = (text: string) => { navigator.clipboard?.writeText(text); msg.success('已复制'); };
 
@@ -333,12 +334,26 @@ export default function Promotion() {
               key: 'users',
               label: <span><UserOutlined /> 邀请人员 <Tag style={{ marginLeft: 4 }}>{mockUsers.length}</Tag></span>,
               children: (
-                <Table
-                  dataSource={mockUsers}
-                  columns={userColumns}
-                  rowKey="id"
-                  pagination={{ pageSize: 10, size: 'small', showTotal: (t) => `共 ${t} 人` }}
-                />
+                <>
+                  <Input
+                    placeholder="搜索姓名或手机号"
+                    prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
+                    allowClear
+                    value={searchKeyword}
+                    onChange={(e) => setSearchKeyword(e.target.value)}
+                    style={{ marginBottom: 12, maxWidth: 280 }}
+                  />
+                  <Table
+                    dataSource={mockUsers.filter((u) => {
+                      if (!searchKeyword) return true;
+                      const kw = searchKeyword.toLowerCase();
+                      return u.realName.toLowerCase().includes(kw) || u.phone.includes(kw);
+                    })}
+                    columns={userColumns}
+                    rowKey="id"
+                    pagination={{ pageSize: 10, size: 'small', showTotal: (t) => `共 ${t} 人` }}
+                  />
+                </>
               ),
             },
             {
