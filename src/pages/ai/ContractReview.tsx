@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Card, Upload, Input, Select, Tag, Result, Spin, Empty } from 'antd';
-import { InboxOutlined, FileWordOutlined, SafetyCertificateOutlined, BulbOutlined } from '@ant-design/icons';
+import { InboxOutlined, FileWordOutlined, SafetyCertificateOutlined, BulbOutlined, DeleteOutlined, CloudUploadOutlined } from '@ant-design/icons';
 import StepFlow, { StepNav } from '../../components/StepFlow';
 import { contractTypeGroups, contractRiskItems } from '../../mock/data';
 
@@ -63,21 +63,44 @@ export default function ContractReview() {
       {current === 0 && (
         <>
           <Card title="上传合同文件">
-            <Upload.Dragger
-              beforeUpload={(f) => { setFileName(f.name); return false; }}
-              maxCount={1}
-              accept=".docx"
-              showUploadList={false}
-            >
-              <p style={{ fontSize: 40, color: '#2f6bff', margin: 0 }}><InboxOutlined /></p>
-              <p style={{ marginTop: 8 }}>点击或拖拽文件到此处上传</p>
-              <p style={{ color: '#8a93a0', fontSize: 12 }}>单文件上传，仅支持 .docx 格式</p>
-            </Upload.Dragger>
-            {fileName && (
-              <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, color: '#1e293b' }}>
-                <FileWordOutlined style={{ color: '#2f6bff' }} />
-                <span>{fileName}</span>
-                <Tag color="success">已选择</Tag>
+            {!fileName ? (
+              <Upload.Dragger
+                beforeUpload={(f) => { setFileName(f.name); return false; }}
+                maxCount={1}
+                accept=".docx"
+                showUploadList={false}
+              >
+                <p style={{ fontSize: 40, color: '#2f6bff', margin: 0 }}><InboxOutlined /></p>
+                <p style={{ marginTop: 8 }}>点击或拖拽文件到此处上传</p>
+                <p style={{ color: '#8a93a0', fontSize: 12 }}>单文件上传，仅支持 .docx 格式</p>
+              </Upload.Dragger>
+            ) : (
+              <div style={{ background: '#f6f8fb', borderRadius: 12, padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, background: 'rgba(47,107,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <FileWordOutlined style={{ fontSize: 22, color: '#2f6bff' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, color: '#1e293b' }}>{fileName}</div>
+                    <div style={{ fontSize: 12, color: '#8a93a0', marginTop: 2 }}>已上传 · .docx 格式</div>
+                  </div>
+                  <Tag color="success">已选择</Tag>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Upload
+                    beforeUpload={(f) => { setFileName(f.name); return false; }}
+                    maxCount={1}
+                    accept=".docx"
+                    showUploadList={false}
+                  >
+                    <a style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <CloudUploadOutlined /> 重新上传
+                    </a>
+                  </Upload>
+                  <a onClick={() => setFileName('')} style={{ color: '#ff4d4f', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, marginLeft: 12 }}>
+                    <DeleteOutlined /> 删除
+                  </a>
+                </div>
               </div>
             )}
           </Card>
