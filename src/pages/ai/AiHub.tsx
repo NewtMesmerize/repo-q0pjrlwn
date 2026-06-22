@@ -19,8 +19,8 @@ export default function AiHub() {
         <div className="zf-grid-mask" />
         <div className="zf-blob" style={{ width: 220, height: 220, background: '#2f6bff', top: -70, right: 40 }} />
         <div className="zf-blob" style={{ width: 180, height: 180, background: '#12b8a6', bottom: -90, right: 200 }} />
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 24 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', gap: 24 }}>
+          <div style={{ flex: 1, minWidth: 0, paddingBottom: 4 }}>
             <h1 style={{ fontSize: 28, margin: 0, fontWeight: 800, color: 'var(--zf-hero-ink)' }}>
               Hi，我是<span style={{ background: 'linear-gradient(90deg,#2f6bff,#12b8a6)', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>中枫法务助理</span> 👋
             </h1>
@@ -39,7 +39,7 @@ export default function AiHub() {
             src={panda}
             alt="中枫法务助理"
             className="zf-ai-panda"
-            style={{ width: 150, height: 150, flex: '0 0 150px', objectFit: 'contain', filter: 'drop-shadow(0 10px 22px rgba(0,0,0,0.35))' }}
+            style={{ width: 160, height: 160, flex: '0 0 160px', objectFit: 'contain', filter: 'drop-shadow(0 10px 22px rgba(0,0,0,0.25))' }}
           />
         </div>
       </div>
