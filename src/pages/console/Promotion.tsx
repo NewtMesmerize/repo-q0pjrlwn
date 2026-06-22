@@ -1,13 +1,13 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Row, Col, Card, Statistic, Input, Button, QRCode, Table, Tag, message, Divider, Tabs, Avatar, Tooltip, Modal, Radio, Space } from 'antd';
 import { CopyOutlined, EyeOutlined, EyeInvisibleOutlined, UserOutlined, ShopOutlined, DownloadOutlined, PictureOutlined } from '@ant-design/icons';
 import { currentUser } from '../../mock/data';
 
-const posterTemplates = [
-  { id: 'blue', label: '科技蓝', gradient: 'linear-gradient(135deg, #1890ff 0%, #096dd9 50%, #0050b3 100%)' },
-  { id: 'purple', label: '商务紫', gradient: 'linear-gradient(135deg, #722ed1 0%, #531dab 50%, #391085 100%)' },
-  { id: 'dark', label: '极简黑', gradient: 'linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #020617 100%)' },
-  { id: 'warm', label: '暖阳橙', gradient: 'linear-gradient(135deg, #fa8c16 0%, #d46b08 50%, #ad4e00 100%)' },
+const posterColors: string[][] = [
+  ['#1890ff', '#096dd9', '#0050b3'],
+  ['#722ed1', '#531dab', '#391085'],
+  ['#1e293b', '#0f172a', '#020617'],
+  ['#fa8c16', '#d46b08', '#ad4e00'],
 ];
 
 const maskPhone = (phone: string) => phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
@@ -44,56 +44,40 @@ export default function Promotion() {
   const [selectedIdentity, setSelectedIdentity] = useState('');
   const [filterUser, setFilterUser] = useState<string | null>(null);
   const [posterModalOpen, setPosterModalOpen] = useState(false);
-  const [posterTemplate, setPosterTemplate] = useState('blue');
+  const [posterIndex, setPosterIndex] = useState(0);
+  const [posterImages, setPosterImages] = useState<string[]>([]);
   const [posterGenerating, setPosterGenerating] = useState(false);
-  const posterCanvasRef = useRef<HTMLCanvasElement>(null);
-  const [posterPreview, setPosterPreview] = useState<string | null>(null);
 
   const copy = (text: string) => { navigator.clipboard?.writeText(text); msg.success('已复制'); };
 
-  const generatePoster = useCallback(async (templateId: string) => {
-    setPosterGenerating(true);
-    setPosterPreview(null);
-    const tpl = posterTemplates.find((t) => t.id === templateId) || posterTemplates[0];
-
+  const drawPoster = useCallback((colorSet: string[]) => {
     const W = 544, H = 960;
     const canvas = document.createElement('canvas');
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext('2d')!;
 
-    // gradient background
-    const colors: Record<string, string[]> = {
-      blue: ['#1890ff', '#096dd9', '#0050b3'],
-      purple: ['#722ed1', '#531dab', '#391085'],
-      dark: ['#1e293b', '#0f172a', '#020617'],
-      warm: ['#fa8c16', '#d46b08', '#ad4e00'],
-    };
-    const c = colors[tpl.id] || colors.blue;
     const grad = ctx.createLinearGradient(0, 0, W, H);
-    grad.addColorStop(0, c[0]);
-    grad.addColorStop(0.5, c[1]);
-    grad.addColorStop(1, c[2]);
+    grad.addColorStop(0, colorSet[0]);
+    grad.addColorStop(0.5, colorSet[1]);
+    grad.addColorStop(1, colorSet[2]);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, H);
 
-    // decorative circles
     ctx.globalAlpha = 0.08;
     ctx.fillStyle = '#fff';
     ctx.beginPath(); ctx.arc(W * 0.8, H * 0.15, 180, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(W * 0.15, H * 0.7, 120, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 1;
 
-    // title
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 36px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('中枫仲调', W / 2, 100);
+    ctx.fillText('\u4e2d\u67ab\u4ef2\u8c03', W / 2, 100);
     ctx.font = '18px sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
-    ctx.fillText('数字技术 + 法律合规 + 调仲一体化', W / 2, 140);
+    ctx.fillText('\u6570\u5b57\u6280\u672f + \u6cd5\u5f8b\u5408\u89c4 + \u8c03\u4ef2\u4e00\u4f53\u5316', W / 2, 140);
 
-    // white card area
     const cardY = 180, cardH = 560, cardX = 40, cardW = W - 80;
     ctx.fillStyle = '#ffffff';
     const r = 20;
@@ -110,38 +94,30 @@ export default function Promotion() {
     ctx.closePath();
     ctx.fill();
 
-    // card content
     ctx.fillStyle = '#1e293b';
     ctx.font = 'bold 22px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('风险识别 · 风险预防', W / 2, cardY + 50);
-    ctx.fillText('一站式纠纷解决方案', W / 2, cardY + 82);
+    ctx.fillText('\u98ce\u9669\u8bc6\u522b \u00b7 \u98ce\u9669\u9884\u9632', W / 2, cardY + 50);
+    ctx.fillText('\u4e00\u7ad9\u5f0f\u7ea0\u7eb7\u89e3\u51b3\u65b9\u6848', W / 2, cardY + 82);
 
     ctx.fillStyle = '#64748b';
     ctx.font = '14px sans-serif';
-    ctx.fillText('AI法律 | 电子合同 | 在线仲裁 | 大数据查询', W / 2, cardY + 120);
+    ctx.fillText('AI\u6cd5\u5f8b | \u7535\u5b50\u5408\u540c | \u5728\u7ebf\u4ef2\u88c1 | \u5927\u6570\u636e\u67e5\u8be2', W / 2, cardY + 120);
 
-    // QR code in card - use Ant Design QRCode to generate image
     const qrCanvas = document.querySelector('.zf-poster-qr canvas') as HTMLCanvasElement | null;
     if (qrCanvas) {
       const qrSize = 200;
-      const qrX = (W - qrSize) / 2;
-      const qrY = cardY + 150;
-      ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
+      ctx.drawImage(qrCanvas, (W - qrSize) / 2, cardY + 150, qrSize, qrSize);
     }
 
-    // invite code text
     ctx.fillStyle = '#1890ff';
     ctx.font = 'bold 18px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(`专属邀请码：${currentUser.inviteCode}`, W / 2, cardY + 390);
-
+    ctx.fillText(`\u4e13\u5c5e\u9080\u8bf7\u7801\uff1a${currentUser.inviteCode}`, W / 2, cardY + 390);
     ctx.fillStyle = '#94a3b8';
     ctx.font = '14px sans-serif';
-    ctx.fillText('扫描二维码或使用邀请码注册', W / 2, cardY + 420);
+    ctx.fillText('\u626b\u63cf\u4e8c\u7ef4\u7801\u6216\u4f7f\u7528\u9080\u8bf7\u7801\u6ce8\u518c', W / 2, cardY + 420);
 
-    // features
-    const features = ['权威仲裁机构', '一裁终局', '全国执行力', '线上全流程'];
+    const features = ['\u6743\u5a01\u4ef2\u88c1\u673a\u6784', '\u4e00\u88c1\u7ec8\u5c40', '\u5168\u56fd\u6267\u884c\u529b', '\u7ebf\u4e0a\u5168\u6d41\u7a0b'];
     const fY = cardY + 470;
     const fW = (cardW - 40) / 4;
     features.forEach((f, i) => {
@@ -156,24 +132,32 @@ export default function Promotion() {
       ctx.fillText(f, fx + (fW - 8) / 2, fY + 21);
     });
 
-    // bottom text
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.font = '14px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('枫起公正 仲达天下', W / 2, H - 60);
+    ctx.fillText('\u67ab\u8d77\u516c\u6b63 \u4ef2\u8fbe\u5929\u4e0b', W / 2, H - 60);
     ctx.font = '12px sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.fillText('中枫仲调 · 专业纠纷解决服务平台', W / 2, H - 35);
+    ctx.fillText('\u4e2d\u67ab\u4ef2\u8c03 \u00b7 \u4e13\u4e1a\u7ea0\u7eb7\u89e3\u51b3\u670d\u52a1\u5e73\u53f0', W / 2, H - 35);
 
-    const dataUrl = canvas.toDataURL('image/png');
-    setPosterPreview(dataUrl);
-    setPosterGenerating(false);
+    return canvas.toDataURL('image/png');
   }, []);
 
+  const generateAllPosters = useCallback(() => {
+    setPosterGenerating(true);
+    requestAnimationFrame(() => {
+      const images = posterColors.map((c) => drawPoster(c));
+      setPosterImages(images);
+      setPosterIndex(0);
+      setPosterGenerating(false);
+    });
+  }, [drawPoster]);
+
   const downloadPoster = () => {
-    if (!posterPreview) return;
+    const src = posterImages[posterIndex];
+    if (!src) return;
     const a = document.createElement('a');
-    a.href = posterPreview;
+    a.href = src;
     a.download = `中枫仲调_推广海报_${currentUser.inviteCode}.png`;
     a.click();
     msg.success('海报已下载');
@@ -332,7 +316,7 @@ export default function Promotion() {
             <p style={{ color: '#8a93a0', marginTop: 10, marginBottom: 10, fontSize: 13 }}>扫码或分享链接，好友注册即可绑定推广关系</p>
             <Space>
               <Button type="primary" onClick={() => copy(currentUser.inviteLink)}>复制链接分享</Button>
-              <Button icon={<PictureOutlined />} onClick={() => { setPosterModalOpen(true); generatePoster(posterTemplate); }}>生成推广海报</Button>
+              <Button icon={<PictureOutlined />} onClick={() => { setPosterModalOpen(true); generateAllPosters(); }}>生成推广海报</Button>
             </Space>
           </Card>
         </Col>
@@ -392,45 +376,37 @@ export default function Promotion() {
         centered
         width={600}
       >
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ marginBottom: 8, fontWeight: 500 }}>选择海报风格</div>
-          <Space>
-            {posterTemplates.map((t) => (
-              <div
-                key={t.id}
-                onClick={() => { setPosterTemplate(t.id); generatePoster(t.id); }}
-                style={{
-                  width: 64,
-                  height: 40,
-                  borderRadius: 8,
-                  background: t.gradient,
-                  cursor: 'pointer',
-                  border: posterTemplate === t.id ? '3px solid #1890ff' : '3px solid transparent',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#fff',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  transition: 'border-color 0.2s',
-                }}
-              >
-                {t.label}
-              </div>
-            ))}
-          </Space>
-        </div>
         <div style={{ textAlign: 'center', background: '#f5f5f5', borderRadius: 12, padding: '24px 0', minHeight: 400 }}>
           {posterGenerating ? (
             <div style={{ padding: 80, color: '#8a93a0' }}>海报生成中...</div>
-          ) : posterPreview ? (
-            <img src={posterPreview} alt="推广海报" style={{ maxHeight: 480, borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }} />
-          ) : (
-            <div style={{ padding: 80, color: '#8a93a0' }}>点击上方风格生成海报</div>
-          )}
+          ) : posterImages.length > 0 ? (
+            <img src={posterImages[posterIndex]} alt="推广海报" style={{ maxHeight: 480, borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }} />
+          ) : null}
         </div>
+        {posterImages.length > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 16 }}>
+            {posterImages.map((src, i) => (
+              <div
+                key={i}
+                onClick={() => setPosterIndex(i)}
+                style={{
+                  width: 56,
+                  height: 100,
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  border: posterIndex === i ? '3px solid #1890ff' : '3px solid transparent',
+                  transition: 'border-color 0.2s',
+                  opacity: posterIndex === i ? 1 : 0.6,
+                }}
+              >
+                <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            ))}
+          </div>
+        )}
         <div style={{ textAlign: 'center', marginTop: 16 }}>
-          <Button type="primary" icon={<DownloadOutlined />} size="large" disabled={!posterPreview} onClick={downloadPoster}>
+          <Button type="primary" icon={<DownloadOutlined />} size="large" disabled={posterImages.length === 0} onClick={downloadPoster}>
             下载海报
           </Button>
         </div>
