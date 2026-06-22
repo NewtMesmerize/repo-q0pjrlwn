@@ -314,10 +314,7 @@ export default function Promotion() {
               <QRCode value={currentUser.inviteLink} size={160} style={{ margin: '0 auto' }} />
             </div>
             <p style={{ color: '#8a93a0', marginTop: 10, marginBottom: 10, fontSize: 13 }}>扫码或分享链接，好友注册即可绑定推广关系</p>
-            <Space>
-              <Button type="primary" onClick={() => copy(currentUser.inviteLink)}>复制链接分享</Button>
-              <Button icon={<PictureOutlined />} onClick={() => { setPosterModalOpen(true); generateAllPosters(); }}>生成推广海报</Button>
-            </Space>
+            <Button type="primary" icon={<PictureOutlined />} onClick={() => { setPosterModalOpen(true); generateAllPosters(); }}>下载推广海报</Button>
           </Card>
         </Col>
         <Col xs={24} md={8}>
