@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Form, Input, Button, Radio, Checkbox, message, Space } from 'antd';
-import { MobileOutlined, SafetyOutlined, UserOutlined, IdcardOutlined, BankOutlined, GiftOutlined } from '@ant-design/icons';
+import { MobileOutlined, SafetyOutlined, IdcardOutlined, BankOutlined, GiftOutlined, CheckCircleFilled, SafetyCertificateOutlined, ThunderboltOutlined, TeamOutlined, FileProtectOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 import Logo from '../components/Logo';
@@ -45,33 +45,61 @@ export default function Register() {
   };
 
   const brandFeatures = [
-    'AI 法律工具，24 小时智能服务',
-    '电子合同 · 区块链司法存证',
-    '全流程在线仲裁，一裁终局',
+    { icon: <SafetyCertificateOutlined />, text: 'AI 法律工具，24 小时智能咨询服务' },
+    { icon: <FileProtectOutlined />, text: '电子合同 · 区块链司法存证，法律效力保障' },
+    { icon: <ThunderboltOutlined />, text: '全流程在线仲裁，平均45天结案，一裁终局' },
+    { icon: <TeamOutlined />, text: '50+ 资深法务专家，一对一专业护航' },
+  ];
+
+  const stats = [
+    { num: '30+', label: '合作仲裁机构' },
+    { num: '12,000+', label: '累计处置案件' },
+    { num: '98%', label: '调解成功率' },
   ];
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex' }}>
       {ctx}
       {/* left brand panel */}
-      <div className="zf-hero" style={{ flex: '1 1 0', display: 'flex', alignItems: 'center', padding: '0 64px' }}>
+      <div className="zf-hero" style={{ flex: '1 1 0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 64px' }}>
         <div className="zf-grid-mask" />
         <div className="zf-blob" style={{ width: 320, height: 320, background: '#2f6bff', top: -60, left: -60 }} />
         <div className="zf-blob" style={{ width: 260, height: 260, background: '#12b8a6', bottom: -80, right: 40 }} />
-        <div style={{ position: 'relative', maxWidth: 420 }}>
+        <div style={{ position: 'relative', maxWidth: 440, width: '100%' }}>
           <Logo />
-          <h1 style={{ color: 'var(--zf-hero-ink)', fontSize: 36, fontWeight: 800, lineHeight: 1.3, margin: '32px 0 0', letterSpacing: '-0.6px' }}>
-            科技赋能仲裁<br />专业守护权益
+          <h1 style={{ color: 'var(--zf-hero-ink)', fontSize: 34, fontWeight: 800, lineHeight: 1.3, margin: '28px 0 0', letterSpacing: '-0.6px' }}>
+            枫起公正 仲达天下
           </h1>
-          <p style={{ color: 'var(--zf-hero-sub)', fontSize: 16, marginTop: 18 }}>
-            一站式数字化纠纷预防与解决平台
+          <p style={{ color: 'var(--zf-hero-sub)', fontSize: 15, marginTop: 12, lineHeight: 1.7 }}>
+            一站式数字化纠纷预防与解决平台，依托成熟技术体系与全国司法协作资源，构建全周期解纷生态。
           </p>
-          <div style={{ marginTop: 36 }}>
-            {brandFeatures.map((f) => (
-              <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, color: '#33405c', fontSize: 15 }}>
-                <span style={{ color: '#12b8a6', fontSize: 18 }}>✓</span> {f}
+
+          {/* stats */}
+          <div style={{ display: 'flex', gap: 24, marginTop: 28, padding: '18px 0', borderTop: '1px solid rgba(47,107,255,0.12)', borderBottom: '1px solid rgba(47,107,255,0.12)' }}>
+            {stats.map((s) => (
+              <div key={s.label} style={{ flex: 1, textAlign: 'center' }}>
+                <div style={{ fontSize: 26, fontWeight: 800, color: '#2f6bff', lineHeight: 1 }}>{s.num}</div>
+                <div style={{ fontSize: 12, color: '#6b7d9a', marginTop: 6 }}>{s.label}</div>
               </div>
             ))}
+          </div>
+
+          {/* features */}
+          <div style={{ marginTop: 28 }}>
+            {brandFeatures.map((f) => (
+              <div key={f.text} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16, color: '#33405c', fontSize: 14, lineHeight: 1.6 }}>
+                <CheckCircleFilled style={{ color: '#12b8a6', fontSize: 17, marginTop: 3, flexShrink: 0 }} />
+                <span>{f.text}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* trust badges */}
+          <div style={{ marginTop: 24, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <span className="zf-chip">司法区块链存证</span>
+            <span className="zf-chip">权威实名认证</span>
+            <span className="zf-chip">一裁终局</span>
+            <span className="zf-chip">全国执行力</span>
           </div>
         </div>
       </div>
