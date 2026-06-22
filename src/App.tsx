@@ -9,6 +9,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Home from './pages/Home';
 import EContract from './pages/EContract';
+import ContractCreate from './pages/econtract/ContractCreate';
 import Packages from './pages/Packages';
 import PackageDetail from './pages/PackageDetail';
 
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Home />} />
           <Route path="e-contract" element={<EContract />} />
+          <Route path="e-contract/create" element={<ContractCreate />} />
           <Route path="packages" element={<Packages />} />
           <Route path="packages/:id" element={<PackageDetail />} />
           <Route path="platform/:tab" element={<Platform />} />
