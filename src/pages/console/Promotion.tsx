@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Row, Col, Card, Statistic, Input, Button, QRCode, Table, Tag, message, Divider, Tabs, Avatar, Tooltip, Modal, Radio, Space } from 'antd';
-import { CopyOutlined, EyeOutlined, EyeInvisibleOutlined, UserOutlined, ShopOutlined, DownloadOutlined, PictureOutlined } from '@ant-design/icons';
+import { CopyOutlined, EyeOutlined, EyeInvisibleOutlined, UserOutlined, ShopOutlined, DownloadOutlined, PictureOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { currentUser } from '../../mock/data';
 
 const posterColors: string[][] = [
@@ -376,32 +376,42 @@ export default function Promotion() {
         centered
         width={600}
       >
-        <div style={{ textAlign: 'center', background: '#f5f5f5', borderRadius: 12, padding: '24px 0', minHeight: 400 }}>
-          {posterGenerating ? (
-            <div style={{ padding: 80, color: '#8a93a0' }}>海报生成中...</div>
-          ) : posterImages.length > 0 ? (
-            <img src={posterImages[posterIndex]} alt="推广海报" style={{ maxHeight: 480, borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }} />
-          ) : null}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+          {posterImages.length > 1 && (
+            <Button
+              shape="circle"
+              icon={<LeftOutlined />}
+              onClick={() => setPosterIndex((posterIndex - 1 + posterImages.length) % posterImages.length)}
+            />
+          )}
+          <div style={{ textAlign: 'center', background: '#f5f5f5', borderRadius: 12, padding: '24px 16px', minHeight: 400, flex: 1 }}>
+            {posterGenerating ? (
+              <div style={{ padding: 80, color: '#8a93a0' }}>海报生成中...</div>
+            ) : posterImages.length > 0 ? (
+              <img src={posterImages[posterIndex]} alt="推广海报" style={{ maxHeight: 480, borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }} />
+            ) : null}
+          </div>
+          {posterImages.length > 1 && (
+            <Button
+              shape="circle"
+              icon={<RightOutlined />}
+              onClick={() => setPosterIndex((posterIndex + 1) % posterImages.length)}
+            />
+          )}
         </div>
         {posterImages.length > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 16 }}>
-            {posterImages.map((src, i) => (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 12 }}>
+            {posterImages.map((_, i) => (
               <div
                 key={i}
-                onClick={() => setPosterIndex(i)}
                 style={{
-                  width: 56,
-                  height: 100,
-                  borderRadius: 8,
-                  overflow: 'hidden',
-                  cursor: 'pointer',
-                  border: posterIndex === i ? '3px solid #1890ff' : '3px solid transparent',
-                  transition: 'border-color 0.2s',
-                  opacity: posterIndex === i ? 1 : 0.6,
+                  width: posterIndex === i ? 20 : 8,
+                  height: 8,
+                  borderRadius: 4,
+                  background: posterIndex === i ? '#1890ff' : '#d9d9d9',
+                  transition: 'all 0.3s',
                 }}
-              >
-                <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </div>
+              />
             ))}
           </div>
         )}
