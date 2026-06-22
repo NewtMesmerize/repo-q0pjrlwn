@@ -178,59 +178,59 @@ export default function Promotion() {
               />
             </div>
           </Card>
-
-          <Card>
-            <Tabs
-              defaultActiveKey="users"
-              items={[
-                {
-                  key: 'users',
-                  label: <span><UserOutlined /> 邀请人员 <Tag style={{ marginLeft: 4 }}>{mockUsers.length}</Tag></span>,
-                  children: (
-                    <Table
-                      dataSource={mockUsers}
-                      columns={userColumns}
-                      rowKey="id"
-                      pagination={{ pageSize: 10, size: 'small', showTotal: (t) => `共 ${t} 人` }}
-                    />
-                  ),
-                },
-                {
-                  key: 'orders',
-                  label: <span><ShopOutlined /> 订单记录 <Tag style={{ marginLeft: 4 }}>{mockOrders.length}</Tag></span>,
-                  children: (
-                    <>
-                      {filterUser && (
-                        <div style={{ background: '#e6f7ff', padding: '8px 16px', borderRadius: 8, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, color: '#1890ff' }}>
-                          <span>{filterUser} 的订单</span>
-                          <a onClick={() => setFilterUser(null)}>清除筛选</a>
-                        </div>
-                      )}
-                      <Table
-                        dataSource={filteredOrders}
-                        columns={orderColumns}
-                        rowKey="id"
-                        pagination={{ pageSize: 10, size: 'small', showTotal: (t) => `共 ${t} 条` }}
-                      />
-                    </>
-                  ),
-                },
-              ]}
-            />
-          </Card>
         </Col>
         <Col xs={24} md={10}>
-          <Card title="推广二维码" style={{ textAlign: 'center' }}>
+          <Card title="推广二维码" style={{ textAlign: 'center', marginBottom: 16 }}>
             <QRCode value={currentUser.inviteLink} size={200} style={{ margin: '0 auto' }} />
             <p style={{ color: '#8a93a0', marginTop: 12 }}>扫码或分享链接，好友注册下单即可绑定推广关系</p>
             <Button type="primary" onClick={() => copy(currentUser.inviteLink)}>复制链接分享</Button>
           </Card>
-          <Card title="推广规则说明" style={{ marginTop: 16 }}>
+          <Card title="推广规则说明">
             <p style={{ color: '#4b5563', lineHeight: 1.9 }}>1. 好友通过您分享的链接或扫码注册，即可绑定推广关系。</p>
             <p style={{ color: '#4b5563', lineHeight: 1.9 }}>2. 推广成功后，用户下单购买产品为您发放奖励，具体奖励规则咨询平台客服。</p>
           </Card>
         </Col>
       </Row>
+
+      <Card style={{ marginTop: 16 }}>
+        <Tabs
+          defaultActiveKey="users"
+          items={[
+            {
+              key: 'users',
+              label: <span><UserOutlined /> 邀请人员 <Tag style={{ marginLeft: 4 }}>{mockUsers.length}</Tag></span>,
+              children: (
+                <Table
+                  dataSource={mockUsers}
+                  columns={userColumns}
+                  rowKey="id"
+                  pagination={{ pageSize: 10, size: 'small', showTotal: (t) => `共 ${t} 人` }}
+                />
+              ),
+            },
+            {
+              key: 'orders',
+              label: <span><ShopOutlined /> 订单记录 <Tag style={{ marginLeft: 4 }}>{mockOrders.length}</Tag></span>,
+              children: (
+                <>
+                  {filterUser && (
+                    <div style={{ background: '#e6f7ff', padding: '8px 16px', borderRadius: 8, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, color: '#1890ff' }}>
+                      <span>{filterUser} 的订单</span>
+                      <a onClick={() => setFilterUser(null)}>清除筛选</a>
+                    </div>
+                  )}
+                  <Table
+                    dataSource={filteredOrders}
+                    columns={orderColumns}
+                    rowKey="id"
+                    pagination={{ pageSize: 10, size: 'small', showTotal: (t) => `共 ${t} 条` }}
+                  />
+                </>
+              ),
+            },
+          ]}
+        />
+      </Card>
 
       <Modal
         title="设置推广身份"
