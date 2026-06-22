@@ -20,13 +20,6 @@ const serviceColors: Record<string, string> = {
   marketing: 'linear-gradient(135deg,#ff7a45,#ffa173)',
 };
 
-const heroStats = [
-  { num: '30+', label: '合作仲裁机构' },
-  { num: '12,000+', label: '累计处置案件' },
-  { num: '45天', label: '平均结案周期' },
-  { num: '98%', label: '调解成功率' },
-];
-
 const flow = [
   { step: '01', title: '在线提交', desc: '填写申请、上传证据材料' },
   { step: '02', title: '审核受理', desc: '机构审核材料并正式立案' },
@@ -89,18 +82,6 @@ export default function Home() {
                   </Button>
                 </div>
               </div>
-            </Col>
-            <Col xs={24} md={11}>
-              <Row gutter={[16, 16]} className="zf-fade-up zf-d2">
-                {heroStats.map((s) => (
-                  <Col span={12} key={s.label}>
-                    <div className="zf-glass" style={{ padding: '24px 22px' }}>
-                      <div className="zf-stat-num" style={{ background: 'linear-gradient(90deg,#2f6bff,#12b8a6)', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{s.num}</div>
-                      <div style={{ color: 'var(--zf-hero-sub)', marginTop: 8, fontSize: 14 }}>{s.label}</div>
-                    </div>
-                  </Col>
-                ))}
-              </Row>
             </Col>
           </Row>
         </div>
@@ -259,14 +240,7 @@ export default function Home() {
                 <div className="zf-blob" style={{ width: 200, height: 200, background: '#fff', opacity: 0.15, top: -60, right: -40 }} />
                 <h2 style={{ color: '#fff', fontSize: 26, fontWeight: 800, margin: 0 }}>专属案件顾问</h2>
                 <p style={{ color: 'rgba(255,255,255,0.85)', margin: '14px 0 26px' }}>资深法务专家一对一服务，平均 5 分钟响应，为您量身定制纠纷解决方案。</p>
-                <Row gutter={16}>
-                  {[['50+', '资深顾问'], ['5min', '平均响应'], ['1000+', '成功案例']].map(([n, l]) => (
-                    <Col span={8} key={l}>
-                      <div style={{ fontSize: 24, fontWeight: 800 }}>{n}</div>
-                      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>{l}</div>
-                    </Col>
-                  ))}
-                </Row>
+
                 <Button icon={<CustomerServiceOutlined />} style={{ marginTop: 28, background: '#fff', color: 'var(--zf-primary)', border: 'none', fontWeight: 700 }} onClick={() => msg.info('正在为您接入专属客服…')}>
                   联系客服
                 </Button>

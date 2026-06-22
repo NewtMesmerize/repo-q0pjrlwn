@@ -51,11 +51,6 @@ export default function Register() {
     { icon: <TeamOutlined />, text: '50+ 资深法务专家，一对一专业护航' },
   ];
 
-  const stats = [
-    { num: '30+', label: '合作仲裁机构' },
-    { num: '12,000+', label: '累计处置案件' },
-    { num: '98%', label: '调解成功率' },
-  ];
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex' }}>
@@ -73,16 +68,6 @@ export default function Register() {
           <p style={{ color: 'var(--zf-hero-sub)', fontSize: 15, marginTop: 12, lineHeight: 1.7 }}>
             一站式数字化纠纷预防与解决平台，依托成熟技术体系与全国司法协作资源，构建全周期解纷生态。
           </p>
-
-          {/* stats */}
-          <div style={{ display: 'flex', gap: 24, marginTop: 28, padding: '18px 0', borderTop: '1px solid rgba(47,107,255,0.12)', borderBottom: '1px solid rgba(47,107,255,0.12)' }}>
-            {stats.map((s) => (
-              <div key={s.label} style={{ flex: 1, textAlign: 'center' }}>
-                <div style={{ fontSize: 26, fontWeight: 800, color: '#2f6bff', lineHeight: 1 }}>{s.num}</div>
-                <div style={{ fontSize: 12, color: '#6b7d9a', marginTop: 6 }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
 
           {/* features */}
           <div style={{ marginTop: 28 }}>
