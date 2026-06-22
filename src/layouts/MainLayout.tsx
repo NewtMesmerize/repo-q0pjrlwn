@@ -123,7 +123,7 @@ export default function MainLayout() {
           </Row>
           <div style={{ height: 1, background: 'rgba(255,255,255,0.1)', margin: '32px 0 18px' }} />
           <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>
-            <span>科技赋能仲裁，专业守护权益</span>
+            <span>枫起公正 仲达天下</span>
             <span>Copyright © 2026 中枫仲调 版权所有 · 蜀ICP备20261234567号-1</span>
           </div>
         </div>
