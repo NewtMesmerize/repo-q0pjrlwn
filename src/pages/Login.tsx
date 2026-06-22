@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Form, Input, Button, Tabs, message, Space } from 'antd';
-import { MobileOutlined, SafetyOutlined, LockOutlined, UserOutlined, CheckCircleFilled, ReloadOutlined } from '@ant-design/icons';
+import { MobileOutlined, SafetyOutlined, LockOutlined, UserOutlined, CheckCircleFilled, ReloadOutlined, SafetyCertificateOutlined, FileProtectOutlined, ThunderboltOutlined, TeamOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 import Logo from '../components/Logo';
@@ -119,33 +119,65 @@ export default function Login() {
   );
 
   const brandFeatures = [
-    'AI 法律工具，24 小时智能服务',
-    '电子合同 · 区块链司法存证',
-    '全流程在线仲裁，一裁终局',
+    { icon: <SafetyCertificateOutlined />, text: 'AI 法律工具，24 小时智能咨询服务' },
+    { icon: <FileProtectOutlined />, text: '电子合同 · 区块链司法存证，法律效力保障' },
+    { icon: <ThunderboltOutlined />, text: '全流程在线仲裁，高效结案，一裁终局' },
+    { icon: <TeamOutlined />, text: '资深法务专家团队，一对一专业护航' },
+  ];
+
+  const serviceCards = [
+    { title: 'AI 智能法律', desc: '智能合同审查、案件分析、法规检索', color: '#2f6bff' },
+    { title: '电子合同签署', desc: '在线签约、区块链存证、全国司法认可', color: '#12b8a6' },
+    { title: '在线仲裁服务', desc: '一站式仲裁立案、材料提交、进度跟踪', color: '#722ed1' },
   ];
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex' }}>
       {ctx}
       {/* left brand panel */}
-      <div className="zf-hero" style={{ flex: '1 1 0', display: 'flex', alignItems: 'center', padding: '0 64px' }}>
+      <div className="zf-hero" style={{ flex: '1 1 0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 64px' }}>
         <div className="zf-grid-mask" />
         <div className="zf-blob" style={{ width: 320, height: 320, background: '#2f6bff', top: -60, left: -60 }} />
         <div className="zf-blob" style={{ width: 260, height: 260, background: '#12b8a6', bottom: -80, right: 40 }} />
-        <div style={{ position: 'relative', maxWidth: 420 }}>
+        <div style={{ position: 'relative', maxWidth: 440, width: '100%' }}>
           <Logo />
-          <h1 style={{ color: 'var(--zf-hero-ink)', fontSize: 36, fontWeight: 800, lineHeight: 1.3, margin: '32px 0 0', letterSpacing: '-0.6px' }}>
-            科技赋能仲裁<br />专业守护权益
+          <h1 style={{ color: 'var(--zf-hero-ink)', fontSize: 34, fontWeight: 800, lineHeight: 1.3, margin: '28px 0 0', letterSpacing: '-0.6px' }}>
+            枫起公正 仲达天下
           </h1>
-          <p style={{ color: 'var(--zf-hero-sub)', fontSize: 16, marginTop: 18 }}>
-            一站式数字化纠纷预防与解决平台
+          <p style={{ color: 'var(--zf-hero-sub)', fontSize: 15, marginTop: 12, lineHeight: 1.7 }}>
+            一站式数字化纠纷预防与解决平台，依托成熟技术体系与全国司法协作资源，构建全周期解纷生态。
           </p>
-          <div style={{ marginTop: 36 }}>
+          <div style={{ marginTop: 28 }}>
             {brandFeatures.map((f) => (
-              <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, color: '#33405c', fontSize: 15 }}>
-                <CheckCircleFilled style={{ color: '#12b8a6', fontSize: 18 }} /> {f}
+              <div key={f.text} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16, color: '#33405c', fontSize: 14, lineHeight: 1.6 }}>
+                <CheckCircleFilled style={{ color: '#12b8a6', fontSize: 17, marginTop: 3, flexShrink: 0 }} />
+                <span>{f.text}</span>
               </div>
             ))}
+          </div>
+
+          {/* service cards */}
+          <div style={{ display: 'flex', gap: 12, marginTop: 28 }}>
+            {serviceCards.map((s) => (
+              <div key={s.title} style={{
+                flex: 1, background: 'rgba(255,255,255,0.65)', backdropFilter: 'blur(8px)',
+                borderRadius: 14, padding: '16px 14px', border: '1px solid rgba(255,255,255,0.5)',
+              }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: `${s.color}1a`, color: s.color, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                  {s.title === 'AI 智能法律' ? <SafetyCertificateOutlined /> : s.title === '电子合同签署' ? <FileProtectOutlined /> : <ThunderboltOutlined />}
+                </div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#16325c' }}>{s.title}</div>
+                <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, lineHeight: 1.5 }}>{s.desc}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* trust badges */}
+          <div style={{ marginTop: 24, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <span className="zf-chip">司法区块链存证</span>
+            <span className="zf-chip">权威实名认证</span>
+            <span className="zf-chip">一裁终局</span>
+            <span className="zf-chip">全国执行力</span>
           </div>
         </div>
       </div>
