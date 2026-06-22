@@ -1,4 +1,5 @@
-import { Row, Col, Card, Button, Form, Input, Select, message } from 'antd';
+import { useState } from 'react';
+import { Row, Col, Card, Button, Form, Input, Select, message, Modal } from 'antd';
 import {
   ArrowRightOutlined,
   CustomerServiceOutlined,
@@ -43,6 +44,16 @@ const platformCards = [
 export default function Home() {
   const navigate = useNavigate();
   const [msg, ctx] = message.useMessage();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalForm] = Form.useForm();
+
+  const handleConsultSubmit = (values: { name: string; phone: string; type: string }) => {
+    // TODO: 对接实际留资接口
+    console.log('留资提交', values);
+    msg.success('提交成功，专家将尽快与您联系！');
+    setModalOpen(false);
+    modalForm.resetFields();
+  };
 
   return (
     <div>
@@ -69,7 +80,7 @@ export default function Home() {
                   降低坏账风险、减少经营损耗、维护合法权益。AI 法律工具 + 电子合同 + 在线仲裁，全周期守护企业与个人权益。
                 </p>
                 <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-                  <Button type="primary" size="large" onClick={() => navigate('/arbitration/filing')} style={{ height: 50, paddingInline: 28, fontSize: 16 }}>
+                  <Button type="primary" size="large" onClick={() => setModalOpen(true)} style={{ height: 50, paddingInline: 28, fontSize: 16 }}>
                     免费获取方案 <ArrowRightOutlined />
                   </Button>
                   <Button
@@ -250,7 +261,7 @@ export default function Home() {
               <div style={{ background: '#fff', padding: '40px 40px' }}>
                 <h3 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>免费获取纠纷解决方案</h3>
                 <p style={{ color: '#8a93a0', margin: '8px 0 20px' }}>提交需求，专家将尽快与您联系。</p>
-                <Form layout="vertical" onFinish={() => msg.success('提交成功，专家将尽快与您联系！')} requiredMark={false}>
+                <Form layout="vertical" onFinish={handleConsultSubmit} requiredMark={false}>
                   <Row gutter={16}>
                     <Col span={12}>
                       <Form.Item name="name" label="称呼" rules={[{ required: true, message: '请输入您的称呼' }]}>
@@ -275,6 +286,37 @@ export default function Home() {
           </Row>
         </div>
       </div>
+      {/* ===== 免费获取方案弹窗 ===== */}
+      <Modal
+        title="免费获取纠纷解决方案"
+        open={modalOpen}
+        onCancel={() => setModalOpen(false)}
+        footer={null}
+        destroyOnClose
+        width={480}
+      >
+        <p style={{ color: '#8a93a0', margin: '0 0 20px' }}>提交需求，专家将尽快与您联系。</p>
+        <Form form={modalForm} layout="vertical" onFinish={handleConsultSubmit} requiredMark={false}>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="name" label="称呼" rules={[{ required: true, message: '请输入您的称呼' }]}>
+                <Input placeholder="请输入您的称呼" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="phone" label="手机号" rules={[{ required: true, pattern: /^1\d{10}$/, message: '请输入正确手机号' }]}>
+                <Input placeholder="请输入手机号码" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="type" label="纠纷类型" rules={[{ required: true, message: '请选择纠纷类型' }]}>
+            <Select placeholder="请选择纠纷类型" options={disputeTypes.map((d) => ({ value: d, label: d }))} />
+          </Form.Item>
+          <Form.Item style={{ marginBottom: 0 }}>
+            <Button type="primary" htmlType="submit" size="large" block>立即提交</Button>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }
