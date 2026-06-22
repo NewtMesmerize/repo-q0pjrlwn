@@ -140,7 +140,9 @@ export default function Login() {
         <div className="zf-blob" style={{ width: 320, height: 320, background: '#2f6bff', top: -60, left: -60 }} />
         <div className="zf-blob" style={{ width: 260, height: 260, background: '#12b8a6', bottom: -80, right: 40 }} />
         <div style={{ position: 'relative', maxWidth: 440, width: '100%' }}>
-          <Logo />
+          <div style={{ transform: 'scale(1.5)', transformOrigin: 'left top', marginBottom: 22 }}>
+            <Logo />
+          </div>
           <h1 style={{ color: 'var(--zf-hero-ink)', fontSize: 34, fontWeight: 800, lineHeight: 1.3, margin: '28px 0 0', letterSpacing: '-0.6px' }}>
             枫起公正 仲达天下
           </h1>
