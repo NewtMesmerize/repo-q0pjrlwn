@@ -9,6 +9,8 @@ class IDCardDetector {
         this.modelReady = false;
         this.model = null;
         this.modelInputSize = 320; // Default input size for segmentation model
+        this.oriModel = null;
+        this.oriModelReady = false;
     }
 
     setCVReady() {
@@ -46,7 +48,7 @@ class IDCardDetector {
         const h = src.rows, w = src.cols;
         const size = this.modelInputSize;
 
-        // Prepare input tensor: resize + normalize
+        // Prepare input tensor: resize + ImageNet normalize
         const resized = new cv.Mat();
         cv.resize(src, resized, new cv.Size(size, size));
 
@@ -54,13 +56,15 @@ class IDCardDetector {
         const rgb = new cv.Mat();
         cv.cvtColor(resized, rgb, cv.COLOR_RGBA2RGB);
 
-        // Normalize to [0, 1] and create CHW tensor
+        // ImageNet normalization: (pixel/255 - mean) / std
+        const mean = [0.485, 0.456, 0.406];
+        const std = [0.229, 0.224, 0.225];
         const inputData = new Float32Array(3 * size * size);
         const data = rgb.data;
         for (let i = 0; i < size * size; i++) {
-            inputData[i] = data[i * 3] / 255.0;                 // R
-            inputData[size * size + i] = data[i * 3 + 1] / 255.0; // G
-            inputData[2 * size * size + i] = data[i * 3 + 2] / 255.0; // B
+            inputData[i] = (data[i * 3] / 255.0 - mean[0]) / std[0];                     // R
+            inputData[size * size + i] = (data[i * 3 + 1] / 255.0 - mean[1]) / std[1];   // G
+            inputData[2 * size * size + i] = (data[i * 3 + 2] / 255.0 - mean[2]) / std[2]; // B
         }
 
         resized.delete();
@@ -74,12 +78,11 @@ class IDCardDetector {
             const results = await this.model.run({ [inputName]: inputTensor });
             const output = results[outputName];
 
-            // Convert output to mask
+            // Convert output to mask (output is already in [0,1] range after sigmoid)
             const maskData = output.data;
             const mask = new cv.Mat(size, size, cv.CV_8UC1);
             for (let i = 0; i < size * size; i++) {
-                // Sigmoid + threshold
-                const val = 1.0 / (1.0 + Math.exp(-maskData[i]));
+                const val = maskData[i];
                 mask.data[i] = val > 0.5 ? 255 : 0;
             }
 
@@ -88,8 +91,9 @@ class IDCardDetector {
             cv.resize(mask, fullMask, new cv.Size(w, h));
             mask.delete();
 
-            // Clean up mask
-            const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+            // Clean up mask with morphological operations
+            const kSize = Math.max(5, Math.round(Math.min(w, h) / 100));
+            const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(kSize, kSize));
             cv.morphologyEx(fullMask, fullMask, cv.MORPH_CLOSE, kernel, new cv.Point(-1, -1), 3);
             cv.morphologyEx(fullMask, fullMask, cv.MORPH_OPEN, kernel, new cv.Point(-1, -1), 2);
             kernel.delete();
@@ -156,36 +160,29 @@ class IDCardDetector {
     }
 
     /**
-     * Async detection that also tries the ONNX model.
-     * Use this when model is loaded for better accuracy on difficult images.
+     * Async detection that prioritizes the ONNX model.
+     * Model is more robust for complex backgrounds, hands, etc.
+     * Falls back to CV-based detection if model unavailable or fails.
      */
     async detectAsync(imageData, width, height) {
-        // First try CV-based detection
-        const cvResult = this.detect(imageData, width, height);
-
-        // If CV gives high confidence, use it directly
-        if (cvResult && cvResult.score >= 60) {
-            return cvResult;
-        }
-
-        // Try model-based detection if available
+        // Try model-based detection first (more robust)
         if (this.modelReady) {
             const src = cv.matFromImageData(imageData);
             try {
                 const modelResult = await this._strategyModel(src);
-                if (modelResult) {
+                if (modelResult && modelResult.score >= 15) {
                     modelResult.method = 'model';
-                    // Use model result if it scores higher
-                    if (!cvResult || modelResult.score > cvResult.score) {
-                        return modelResult;
-                    }
+                    return modelResult;
                 }
+            } catch (e) {
+                console.warn('Model detection failed, falling back to CV:', e.message);
             } finally {
                 src.delete();
             }
         }
 
-        return cvResult;
+        // Fallback to CV-based detection
+        return this.detect(imageData, width, height);
     }
 
     _strategyCanny(src) {
@@ -571,65 +568,108 @@ class IDCardDetector {
     }
 
     /**
-     * Fix orientation using skin/face detection heuristics.
-     * Returns rotation angle (0 or 180).
+     * Load orientation classification model (PP-LCNet_x1_0_doc_ori).
+     * Classifies document orientation: 0°, 90°, 180°, 270°.
      */
-    detectOrientation(imageData, width, height) {
-        if (!this.cvReady) return 0;
+    async loadOrientationModel(modelUrl) {
+        try {
+            this.oriModel = await ort.InferenceSession.create(modelUrl, {
+                executionProviders: ['wasm'],
+            });
+            this.oriModelReady = true;
+            console.log('Orientation model loaded successfully');
+            return true;
+        } catch (e) {
+            console.warn('Failed to load orientation model:', e.message);
+            this.oriModelReady = false;
+            return false;
+        }
+    }
 
-        const src = cv.matFromImageData(imageData);
-        const midX = Math.floor(width / 2);
-        const midY = Math.floor(height / 2);
+    /**
+     * Detect orientation using PP-LCNet model.
+     * Returns rotation angle: 0, 90, 180, or 270.
+     */
+    async detectOrientationAsync(imageData, width, height) {
+        if (this.oriModelReady) {
+            try {
+                return await this._orientationModel(imageData, width, height);
+            } catch (e) {
+                console.warn('Orientation model failed, falling back to heuristic:', e.message);
+            }
+        }
+        return 0; // Default: no rotation
+    }
 
-        // Convert to HSV for skin detection
-        const rgb = new cv.Mat();
-        const hsv = new cv.Mat();
-        cv.cvtColor(src, rgb, cv.COLOR_RGBA2RGB);
-        cv.cvtColor(rgb, hsv, cv.COLOR_RGB2HSV);
+    /**
+     * Run PP-LCNet orientation model on image data.
+     * Preprocessing: resize short→256, center crop 224, ImageNet normalize, CHW.
+     */
+    async _orientationModel(imageData, width, height) {
+        const size = 224;
 
-        // Skin color mask
-        const lowerSkin1 = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [0, 20, 70, 0]);
-        const upperSkin1 = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [20, 150, 255, 0]);
-        const skinMask1 = new cv.Mat();
-        cv.inRange(hsv, lowerSkin1, upperSkin1, skinMask1);
+        // Step 1: Resize short side to 256 using canvas
+        const shortSide = Math.min(width, height);
+        const scale = 256.0 / shortSide;
+        const newW = Math.round(width * scale);
+        const newH = Math.round(height * scale);
 
-        const lowerSkin2 = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [160, 20, 70, 0]);
-        const upperSkin2 = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [180, 150, 255, 0]);
-        const skinMask2 = new cv.Mat();
-        cv.inRange(hsv, lowerSkin2, upperSkin2, skinMask2);
+        const resizeCanvas = document.createElement('canvas');
+        resizeCanvas.width = newW;
+        resizeCanvas.height = newH;
+        const resizeCtx = resizeCanvas.getContext('2d');
 
-        const skinMask = new cv.Mat();
-        cv.bitwise_or(skinMask1, skinMask2, skinMask);
+        // Draw imageData to temp canvas first
+        const tmpCanvas = document.createElement('canvas');
+        tmpCanvas.width = width;
+        tmpCanvas.height = height;
+        tmpCanvas.getContext('2d').putImageData(imageData, 0, 0);
+        resizeCtx.drawImage(tmpCanvas, 0, 0, newW, newH);
 
-        // Count skin pixels in quadrants
-        const trSkin = cv.countNonZero(skinMask.roi(new cv.Rect(midX, 0, width - midX, midY)));
-        const blSkin = cv.countNonZero(skinMask.roi(new cv.Rect(0, midY, midX, height - midY)));
+        // Step 2: Center crop to 224x224
+        const left = Math.floor((newW - size) / 2);
+        const top = Math.floor((newH - size) / 2);
+        const cropData = resizeCtx.getImageData(left, top, size, size);
 
-        // Dark pixels (hair) detection
-        const gray = new cv.Mat();
-        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-        const darkMask = new cv.Mat();
-        cv.threshold(gray, darkMask, 80, 255, cv.THRESH_BINARY_INV);
+        // Step 3: Normalize with ImageNet stats and convert to CHW
+        const mean = [0.485, 0.456, 0.406];
+        const std = [0.229, 0.224, 0.225];
+        const inputData = new Float32Array(3 * size * size);
+        const data = cropData.data;
+        for (let i = 0; i < size * size; i++) {
+            inputData[i] = (data[i * 4] / 255.0 - mean[0]) / std[0];                     // R
+            inputData[size * size + i] = (data[i * 4 + 1] / 255.0 - mean[1]) / std[1];   // G
+            inputData[2 * size * size + i] = (data[i * 4 + 2] / 255.0 - mean[2]) / std[2]; // B
+        }
 
-        const trDark = cv.countNonZero(darkMask.roi(new cv.Rect(midX, 0, width - midX, midY)));
-        const blDark = cv.countNonZero(darkMask.roi(new cv.Rect(0, midY, midX, height - midY)));
+        // Run inference
+        const tensor = new ort.Tensor('float32', inputData, [1, 3, size, size]);
+        const results = await this.oriModel.run({ x: tensor });
+        const output = results[Object.keys(results)[0]].data;
 
-        // Scoring
-        let scoreCorrect = 0, scoreFlipped = 0;
+        // Check if output is already probabilities (sum ~1, all in [0,1])
+        let probs;
+        const outputArr = Array.from(output);
+        const allPositive = outputArr.every(v => v >= 0 && v <= 1);
+        const sumClose1 = Math.abs(outputArr.reduce((a, b) => a + b, 0) - 1.0) < 0.1;
+        if (allPositive && sumClose1) {
+            probs = outputArr;
+        } else {
+            // Apply softmax for raw logits
+            const maxVal = Math.max(...outputArr);
+            const expVals = outputArr.map(v => Math.exp(v - maxVal));
+            const sumExp = expVals.reduce((a, b) => a + b, 0);
+            probs = expVals.map(v => v / sumExp);
+        }
 
-        if (trSkin > blSkin * 1.5 && trSkin > 100) scoreCorrect += 3;
-        else if (blSkin > trSkin * 1.5 && blSkin > 100) scoreFlipped += 3;
+        // Labels: [0°, 90°, 180°, 270°]
+        const angles = [0, 90, 180, 270];
+        const predIdx = probs.indexOf(Math.max(...probs));
+        const confidence = probs[predIdx];
+        const angle = angles[predIdx];
 
-        if (trDark > blDark * 1.3 && trDark > 50) scoreCorrect += 2;
-        else if (blDark > trDark * 1.3 && blDark > 50) scoreFlipped += 2;
-
-        // Cleanup
-        src.delete(); rgb.delete(); hsv.delete();
-        lowerSkin1.delete(); upperSkin1.delete(); skinMask1.delete();
-        lowerSkin2.delete(); upperSkin2.delete(); skinMask2.delete();
-        skinMask.delete(); gray.delete(); darkMask.delete();
-
-        return scoreFlipped > scoreCorrect ? 180 : 0;
+        console.log(`Orientation model: ${angle}° (conf=${confidence.toFixed(3)}) raw=[${outputArr.map(v => v.toFixed(3)).join(',')}]`);
+        return angle;
     }
 }
 

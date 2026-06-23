@@ -115,6 +115,7 @@ function onOpenCVReady() {
         detector.setCVReady();
         els.loadingOverlay.classList.add('hidden');
         console.log('OpenCV.js ready');
+        loadModel();
     };
 
     // If cv is already ready
@@ -122,6 +123,28 @@ function onOpenCVReady() {
         state.cvReady = true;
         detector.setCVReady();
         els.loadingOverlay.classList.add('hidden');
+        loadModel();
+    }
+}
+
+// Auto-load ONNX models for enhanced detection
+async function loadModel() {
+    // Load segmentation model (U2-Net-P)
+    els.loadingText && (els.loadingText.textContent = '加载检测模型...');
+    const segSuccess = await detector.loadModel('u2netp.onnx', 320);
+    if (segSuccess) {
+        console.log('Segmentation model loaded');
+    } else {
+        console.log('Segmentation model not available - using CV-only detection');
+    }
+
+    // Load orientation model (PP-LCNet)
+    els.loadingText && (els.loadingText.textContent = '加载方向模型...');
+    const oriSuccess = await detector.loadOrientationModel('doc_ori.onnx');
+    if (oriSuccess) {
+        console.log('Orientation model loaded');
+    } else {
+        console.log('Orientation model not available - orientation auto-fix disabled');
     }
 }
 
@@ -190,9 +213,12 @@ async function processImages(files) {
         if (state.cvReady) {
             resultData = detector.perspectiveCrop(imageData, corners);
 
-            // Fix orientation
+            // Use orientation model on cropped result to detect 180° flip
+            // (90°/270° are already handled by perspective transform)
             if (resultData) {
-                const rotation = detector.detectOrientation(resultData, 856, 540);
+                const rotation = await detector.detectOrientationAsync(
+                    resultData, resultData.width, resultData.height
+                );
                 if (rotation === 180) {
                     resultData = rotateImageData(resultData, 180);
                 }
@@ -364,11 +390,13 @@ function navigate(direction) {
     showImage(state.currentIndex + direction);
 }
 
-function redetect() {
+async function redetect() {
     const item = state.images[state.currentIndex];
     if (!state.cvReady) return;
 
-    const result = detector.detect(item.imageData, item.imageData.width, item.imageData.height);
+    const result = detector.modelReady
+        ? await detector.detectAsync(item.imageData, item.imageData.width, item.imageData.height)
+        : detector.detect(item.imageData, item.imageData.width, item.imageData.height);
     if (result) {
         // Expand corners outward to avoid cutting card content
         item.corners = detector.expandCorners(
@@ -399,15 +427,17 @@ function resetCorners() {
     cropCurrent();
 }
 
-function cropCurrent() {
+async function cropCurrent() {
     const item = state.images[state.currentIndex];
     if (!state.cvReady) return;
 
     item.result = detector.perspectiveCrop(item.imageData, item.corners);
 
     if (item.result) {
-        // Auto orientation fix
-        const rotation = detector.detectOrientation(item.result, item.result.width, item.result.height);
+        // Auto orientation fix - only apply 180° flip
+        const rotation = await detector.detectOrientationAsync(
+            item.result, item.result.width, item.result.height
+        );
         if (rotation === 180) {
             item.result = rotateImageData(item.result, 180);
         }
@@ -544,8 +574,9 @@ function updateResultsGrid() {
 
         const info = document.createElement('div');
         info.className = 'card-info';
-        const statusClass = item.method.startsWith('auto') ? 'success' : 'manual';
-        const statusText = item.method.startsWith('auto') ? '自动' : '手动';
+        const isAuto = item.method.startsWith('auto') || item.method === 'model';
+        const statusClass = isAuto ? 'success' : 'manual';
+        const statusText = item.method === 'model' ? '模型' : (item.method.startsWith('auto') ? '自动' : '手动');
         info.innerHTML = `
             <span class="card-status ${statusClass}">${statusText}</span>
             ${item.file.name.substring(0, 15)}
