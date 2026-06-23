@@ -48,10 +48,8 @@ class IDCardDetector {
         const h = src.rows, w = src.cols;
         const size = this.modelInputSize;
 
-        // Prepare input tensor: resize + ImageNet normalize
         const resized = new cv.Mat();
         cv.resize(src, resized, new cv.Size(size, size));
-
         const rgb = new cv.Mat();
         cv.cvtColor(resized, rgb, cv.COLOR_RGBA2RGB);
 
@@ -64,7 +62,6 @@ class IDCardDetector {
             inputData[size * size + i] = (data[i * 3 + 1] / 255.0 - mean[1]) / std[1];
             inputData[2 * size * size + i] = (data[i * 3 + 2] / 255.0 - mean[2]) / std[2];
         }
-
         resized.delete();
         rgb.delete();
 
@@ -76,53 +73,206 @@ class IDCardDetector {
             const output = results[outputName];
             const maskData = output.data;
 
-            // Try multiple thresholds: higher thresholds produce tighter masks
-            // that better separate card from hand/background objects
-            let bestResult = null;
-            for (const threshold of [0.7, 0.6, 0.5]) {
-                const mask = new cv.Mat(size, size, cv.CV_8UC1);
-                for (let i = 0; i < size * size; i++) {
-                    mask.data[i] = maskData[i] > threshold ? 255 : 0;
-                }
-
-                const fullMask = new cv.Mat();
-                cv.resize(mask, fullMask, new cv.Size(w, h));
-                mask.delete();
-
-                // Morphological cleanup
-                const kSize = Math.max(5, Math.round(Math.min(w, h) / 100));
-                const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(kSize, kSize));
-                cv.morphologyEx(fullMask, fullMask, cv.MORPH_CLOSE, kernel, new cv.Point(-1, -1), 3);
-                cv.morphologyEx(fullMask, fullMask, cv.MORPH_OPEN, kernel, new cv.Point(-1, -1), 2);
-
-                // Extra erosion to separate card from connected hand/objects
-                const erodeK = Math.max(3, Math.round(Math.min(w, h) / 80));
-                const erodeKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(erodeK, erodeK));
-                const erodedMask = new cv.Mat();
-                cv.erode(fullMask, erodedMask, erodeKernel);
-
-                // Find connected components and pick best card-like region
-                const cardMask = this._selectCardComponent(erodedMask, fullMask, w, h);
-                erodeKernel.delete();
-                erodedMask.delete();
-                kernel.delete();
-
-                const result = this._findBestContour(cardMask, src);
-                cardMask.delete();
-                fullMask.delete();
-
-                if (result && (!bestResult || result.score > bestResult.score)) {
-                    bestResult = result;
-                }
-                // If we found a good result at this threshold, stop
-                if (bestResult && bestResult.score >= 30) break;
+            // Build clean mask at threshold 0.5
+            const mask05 = new cv.Mat(size, size, cv.CV_8UC1);
+            for (let i = 0; i < size * size; i++) {
+                mask05.data[i] = maskData[i] > 0.5 ? 255 : 0;
             }
+            const fullMask = new cv.Mat();
+            cv.resize(mask05, fullMask, new cv.Size(w, h));
+            mask05.delete();
 
-            return bestResult;
+            const kSize = Math.max(5, Math.round(Math.min(w, h) / 100));
+            const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(kSize, kSize));
+            cv.morphologyEx(fullMask, fullMask, cv.MORPH_CLOSE, kernel, new cv.Point(-1, -1), 3);
+            cv.morphologyEx(fullMask, fullMask, cv.MORPH_OPEN, kernel, new cv.Point(-1, -1), 2);
+            kernel.delete();
+
+            let candidates = [];
+
+            // Strategy A: Direct contour on clean mask (no erosion)
+            // Works when mask cleanly covers just the card
+            const resultA = this._findBestContour(fullMask, src);
+            if (resultA) candidates.push(resultA);
+
+            // Strategy B: Hough line-based edge detection
+            // Works when mask includes hand but card edges are still straight
+            const resultB = this._findCardFromHoughLines(fullMask, src);
+            if (resultB) candidates.push(resultB);
+
+            // Strategy C: Erosion + connected component (for attached background objects)
+            const erodeK = Math.max(3, Math.round(Math.min(w, h) / 80));
+            const erodeKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(erodeK, erodeK));
+            const erodedMask = new cv.Mat();
+            cv.erode(fullMask, erodedMask, erodeKernel);
+            const cardMask = this._selectCardComponent(erodedMask, fullMask, w, h);
+            const resultC = this._findBestContour(cardMask, src);
+            if (resultC) candidates.push(resultC);
+            erodeKernel.delete();
+            erodedMask.delete();
+            cardMask.delete();
+
+            fullMask.delete();
+
+            if (candidates.length === 0) return null;
+            candidates.sort((a, b) => b.score - a.score);
+            return candidates[0];
         } catch (e) {
             console.warn('Model inference failed:', e.message);
             return null;
         }
+    }
+
+    /**
+     * Find card rectangle using Hough line detection on mask edges.
+     * Detects straight card edges even when hand is attached to mask.
+     */
+    _findCardFromHoughLines(binaryMask, srcImg) {
+        const h = srcImg.rows, w = srcImg.cols;
+
+        const edges = new cv.Mat();
+        cv.Canny(binaryMask, edges, 50, 150);
+
+        const lines = new cv.Mat();
+        const minLineLen = Math.round(Math.min(w, h) / 8);
+        cv.HoughLinesP(edges, lines, 1, Math.PI / 180, 50, minLineLen, 20);
+        edges.delete();
+
+        if (lines.rows < 3) {
+            lines.delete();
+            return null;
+        }
+
+        // Classify lines as horizontal or vertical
+        const hLines = []; // {y, x1, x2}
+        const vLines = []; // {x, y1, y2}
+        for (let i = 0; i < lines.rows; i++) {
+            const x1 = lines.data32S[i * 4];
+            const y1 = lines.data32S[i * 4 + 1];
+            const x2 = lines.data32S[i * 4 + 2];
+            const y2 = lines.data32S[i * 4 + 3];
+            const angle = Math.abs(Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI);
+            if (angle < 15 || angle > 165) {
+                hLines.push({ y: (y1 + y2) / 2, x1: Math.min(x1, x2), x2: Math.max(x1, x2) });
+            } else if (angle > 75 && angle < 105) {
+                vLines.push({ x: (x1 + x2) / 2, y1: Math.min(y1, y2), y2: Math.max(y1, y2) });
+            }
+        }
+        lines.delete();
+
+        if (hLines.length < 2 && vLines.length < 2) return null;
+
+        // Cluster horizontal lines by y-coordinate
+        hLines.sort((a, b) => a.y - b.y);
+        const hClusters = this._clusterValues(hLines.map(l => l.y), Math.min(w, h) / 20);
+
+        // Cluster vertical lines by x-coordinate
+        vLines.sort((a, b) => a.x - b.x);
+        const vClusters = this._clusterValues(vLines.map(l => l.x), Math.min(w, h) / 20);
+
+        // Try to form rectangles from edge combinations
+        let candidates = [];
+        const CARD_RATIO = 1.585;
+
+        if (hClusters.length >= 2 && vClusters.length >= 1) {
+            // Have top, bottom, and at least one side
+            for (let hi = 0; hi < hClusters.length - 1; hi++) {
+                for (let hj = hi + 1; hj < hClusters.length; hj++) {
+                    const top = hClusters[hi];
+                    const bottom = hClusters[hj];
+                    const hSpan = bottom - top;
+                    if (hSpan < Math.min(w, h) * 0.1) continue;
+
+                    for (const left of vClusters) {
+                        // Compute right edge using aspect ratio
+                        const wByRatio = hSpan * CARD_RATIO;
+                        const hByRatio = hSpan / CARD_RATIO;
+
+                        // Try both orientations: card horizontal or vertical in image
+                        for (const expectedW of [wByRatio, hByRatio]) {
+                            const right = left + expectedW;
+                            if (right > 0 && right < w * 1.05) {
+                                const pts = [[left, top], [right, top], [right, bottom], [left, bottom]];
+                                const score = this._scoreCandidate(pts, srcImg);
+                                if (score > 0) {
+                                    candidates.push({ corners: this._orderPoints(pts), score: score });
+                                }
+                            }
+                        }
+                    }
+
+                    // If we have right edge clusters too
+                    for (const left of vClusters) {
+                        for (const right of vClusters) {
+                            if (right <= left) continue;
+                            const pts = [[left, top], [right, top], [right, bottom], [left, bottom]];
+                            const score = this._scoreCandidate(pts, srcImg);
+                            if (score > 0) {
+                                candidates.push({ corners: this._orderPoints(pts), score: score });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (hClusters.length >= 1 && vClusters.length >= 2) {
+            // Have left, right, and at least one horizontal edge
+            for (let vi = 0; vi < vClusters.length - 1; vi++) {
+                for (let vj = vi + 1; vj < vClusters.length; vj++) {
+                    const left = vClusters[vi];
+                    const right = vClusters[vj];
+                    const wSpan = right - left;
+                    if (wSpan < Math.min(w, h) * 0.1) continue;
+
+                    for (const top of hClusters) {
+                        const hByRatio = wSpan / CARD_RATIO;
+                        const wByRatio = wSpan * CARD_RATIO;
+
+                        for (const expectedH of [hByRatio, wByRatio]) {
+                            const bottom = top + expectedH;
+                            if (bottom > 0 && bottom < h * 1.05) {
+                                const pts = [[left, top], [right, top], [right, bottom], [left, bottom]];
+                                const score = this._scoreCandidate(pts, srcImg);
+                                if (score > 0) {
+                                    candidates.push({ corners: this._orderPoints(pts), score: score });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (candidates.length === 0) return null;
+        candidates.sort((a, b) => b.score - a.score);
+        return candidates[0];
+    }
+
+    /**
+     * Cluster nearby values together. Returns array of cluster centers.
+     */
+    _clusterValues(values, threshold) {
+        if (values.length === 0) return [];
+        const sorted = [...values].sort((a, b) => a - b);
+        const clusters = [];
+        let clusterStart = sorted[0];
+        let clusterSum = sorted[0];
+        let clusterCount = 1;
+
+        for (let i = 1; i < sorted.length; i++) {
+            if (sorted[i] - clusterStart < threshold) {
+                clusterSum += sorted[i];
+                clusterCount++;
+            } else {
+                clusters.push(clusterSum / clusterCount);
+                clusterStart = sorted[i];
+                clusterSum = sorted[i];
+                clusterCount = 1;
+            }
+        }
+        clusters.push(clusterSum / clusterCount);
+        return clusters;
     }
 
     /**
@@ -136,14 +286,12 @@ class IDCardDetector {
         const numLabels = cv.connectedComponentsWithStats(erodedMask, labels, stats, centroids);
 
         if (numLabels <= 1) {
-            // No components found after erosion, use original mask
             labels.delete(); stats.delete(); centroids.delete();
             const result = new cv.Mat();
             originalMask.copyTo(result);
             return result;
         }
 
-        // Score each component for card-likeness
         let bestLabel = -1;
         let bestScore = -1;
         const imgArea = w * h;
@@ -153,7 +301,6 @@ class IDCardDetector {
             const compW = stats.intAt(i, cv.CC_STAT_WIDTH);
             const compH = stats.intAt(i, cv.CC_STAT_HEIGHT);
 
-            // Skip tiny components
             if (compArea < imgArea * 0.03) continue;
 
             const ratio = Math.max(compW, compH) / Math.max(1, Math.min(compW, compH));
@@ -161,17 +308,14 @@ class IDCardDetector {
             const compactness = compArea / (compW * compH);
 
             let score = 0;
-            // Prefer aspect ratio close to 1.585:1
             if (ratioDiff < 0.15) score += 30;
             else if (ratioDiff < 0.3) score += 20;
             else if (ratioDiff < 0.5) score += 10;
             else score -= 10;
 
-            // Prefer compact (rectangular) shapes
             if (compactness > 0.6) score += 15;
             else if (compactness > 0.4) score += 10;
 
-            // Prefer larger components (more likely to be the card)
             score += Math.min(20, (compArea / imgArea) * 100);
 
             if (score > bestScore) {
@@ -181,30 +325,24 @@ class IDCardDetector {
         }
 
         if (bestLabel < 0) {
-            // No good component found, use original mask
             labels.delete(); stats.delete(); centroids.delete();
             const result = new cv.Mat();
             originalMask.copyTo(result);
             return result;
         }
 
-        // Create mask for just the selected component's region,
-        // but use the original (pre-erosion) mask pixels within that region
-        // to recover the full card extent
         const componentMask = new cv.Mat(h, w, cv.CV_8UC1, new cv.Scalar(0));
         const lx = stats.intAt(bestLabel, cv.CC_STAT_LEFT);
         const ly = stats.intAt(bestLabel, cv.CC_STAT_TOP);
         const lw = stats.intAt(bestLabel, cv.CC_STAT_WIDTH);
         const lh = stats.intAt(bestLabel, cv.CC_STAT_HEIGHT);
 
-        // Expand the bounding box slightly to recover eroded pixels
         const margin = Math.round(Math.min(w, h) / 40);
         const rx1 = Math.max(0, lx - margin);
         const ry1 = Math.max(0, ly - margin);
         const rx2 = Math.min(w, lx + lw + margin);
         const ry2 = Math.min(h, ly + lh + margin);
 
-        // Copy original mask pixels within expanded component bounds
         for (let y = ry1; y < ry2; y++) {
             for (let x = rx1; x < rx2; x++) {
                 if (originalMask.ucharAt(y, x) > 0) {
@@ -527,9 +665,12 @@ class IDCardDetector {
         const area = this._polygonArea(ordered);
         const imgArea = h * w;
         const areaRatio = area / imgArea;
-        if (areaRatio < 0.05 || areaRatio > 0.95) return -1;
-        if (areaRatio >= 0.15 && areaRatio <= 0.70) score += 10;
-        else if (areaRatio >= 0.10 && areaRatio <= 0.80) score += 5;
+        if (areaRatio < 0.03 || areaRatio > 0.95) return -1;
+        // Area is the most important signal - larger candidates are more likely to be the full card
+        if (areaRatio >= 0.15 && areaRatio <= 0.70) score += 25;
+        else if (areaRatio >= 0.10 && areaRatio <= 0.80) score += 18;
+        else if (areaRatio >= 0.07) score += 10;
+        else score -= 5;
 
         // Aspect ratio check
         const w1 = this._dist(ordered[0], ordered[1]);
@@ -561,10 +702,10 @@ class IDCardDetector {
             const mean = cv.mean(grayW);
             const avgBrightness = mean[0];
 
-            if (avgBrightness > 160) score += 20;
-            else if (avgBrightness > 130) score += 15;
-            else if (avgBrightness > 100) score += 8;
-            else if (avgBrightness < 80) score -= 10;
+            if (avgBrightness > 160) score += 10;
+            else if (avgBrightness > 130) score += 8;
+            else if (avgBrightness > 100) score += 5;
+            else if (avgBrightness < 80) score -= 5;
 
             // Check edge density (text indicator)
             const edges = new cv.Mat();
