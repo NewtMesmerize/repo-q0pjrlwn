@@ -180,6 +180,11 @@ async function processImages(files) {
             ];
         }
 
+        // Expand corners slightly outward to avoid cutting card content
+        if (method !== 'manual') {
+            corners = detector.expandCorners(corners, imageData.width, imageData.height, 0.03);
+        }
+
         // Generate initial crop
         let resultData = null;
         if (state.cvReady) {
@@ -365,7 +370,10 @@ function redetect() {
 
     const result = detector.detect(item.imageData, item.imageData.width, item.imageData.height);
     if (result) {
-        item.corners = result.corners;
+        // Expand corners outward to avoid cutting card content
+        item.corners = detector.expandCorners(
+            result.corners, item.imageData.width, item.imageData.height, 0.03
+        );
         item.method = result.method;
         item.score = result.score;
         updateCornersDisplay();

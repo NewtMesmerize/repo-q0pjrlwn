@@ -509,6 +509,29 @@ class IDCardDetector {
     }
 
     /**
+     * Expand corners outward from centroid by a percentage.
+     * This prevents cropping too tightly on the card boundary.
+     */
+    expandCorners(corners, imgWidth, imgHeight, expandPercent = 0.02) {
+        // Calculate centroid
+        const cx = corners.reduce((s, p) => s + p[0], 0) / 4;
+        const cy = corners.reduce((s, p) => s + p[1], 0) / 4;
+
+        // Expand each corner away from centroid
+        const expanded = corners.map(([x, y]) => {
+            const dx = x - cx;
+            const dy = y - cy;
+            let nx = x + dx * expandPercent;
+            let ny = y + dy * expandPercent;
+            // Clamp to image bounds
+            nx = Math.max(0, Math.min(imgWidth - 1, nx));
+            ny = Math.max(0, Math.min(imgHeight - 1, ny));
+            return [nx, ny];
+        });
+        return expanded;
+    }
+
+    /**
      * Perspective crop using detected corners.
      * Returns cropped ImageData.
      */
