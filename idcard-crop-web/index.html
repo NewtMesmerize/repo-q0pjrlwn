@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>身份证智能裁剪工具</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>身份证智能裁剪工具</h1>
+            <p class="subtitle">自动检测 + 透视矫正 + 方向校正 | 图片不上传服务器，全部本地处理</p>
+        </header>
+
+        <!-- Upload Area -->
+        <div id="upload-area" class="upload-area">
+            <div class="upload-content">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <p>拖拽图片到此处，或点击选择文件</p>
+                <p class="hint">支持 JPG、PNG、BMP，可多选批量处理</p>
+            </div>
+            <input type="file" id="file-input" multiple accept="image/*" style="display:none">
+        </div>
+
+        <!-- Processing Status -->
+        <div id="status-bar" class="status-bar hidden">
+            <div class="status-text" id="status-text">正在加载 OpenCV.js...</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+        </div>
+
+        <!-- Main Workspace -->
+        <div id="workspace" class="workspace hidden">
+            <!-- Image Navigation (for batch) -->
+            <div class="batch-nav" id="batch-nav">
+                <button id="btn-prev" class="btn btn-sm">&lt; 上一张</button>
+                <span id="batch-counter">1 / 1</span>
+                <button id="btn-next" class="btn btn-sm">下一张 &gt;</button>
+            </div>
+
+            <div class="workspace-layout">
+                <!-- Original Image with Corner Overlay -->
+                <div class="panel">
+                    <h3>原图 <span class="detection-badge" id="detection-badge"></span></h3>
+                    <div class="canvas-container" id="source-container">
+                        <canvas id="source-canvas"></canvas>
+                        <!-- Corner handles -->
+                        <div class="corner-handle" id="corner-tl" data-corner="0"></div>
+                        <div class="corner-handle" id="corner-tr" data-corner="1"></div>
+                        <div class="corner-handle" id="corner-br" data-corner="2"></div>
+                        <div class="corner-handle" id="corner-bl" data-corner="3"></div>
+                        <!-- Overlay SVG for polygon -->
+                        <svg class="overlay-svg" id="overlay-svg">
+                            <polygon id="corner-polygon" points="0,0 0,0 0,0 0,0"/>
+                        </svg>
+                    </div>
+                    <div class="panel-actions">
+                        <button id="btn-auto-detect" class="btn btn-primary">重新自动检测</button>
+                        <button id="btn-reset-corners" class="btn">重置角点</button>
+                    </div>
+                </div>
+
+                <!-- Result Preview -->
+                <div class="panel">
+                    <h3>裁剪结果</h3>
+                    <div class="canvas-container" id="result-container">
+                        <canvas id="result-canvas"></canvas>
+                    </div>
+                    <div class="panel-actions">
+                        <button id="btn-rotate-cw" class="btn">旋转90°</button>
+                        <button id="btn-rotate-180" class="btn">旋转180°</button>
+                        <button id="btn-crop" class="btn btn-primary">确认裁剪</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="actions">
+                <button id="btn-download" class="btn btn-success">下载当前图片</button>
+                <button id="btn-download-all" class="btn btn-success">下载全部 (ZIP)</button>
+                <button id="btn-clear" class="btn btn-danger">清空重来</button>
+            </div>
+
+            <!-- Results List (for batch) -->
+            <div id="results-list" class="results-list hidden">
+                <h3>批量处理结果</h3>
+                <div id="results-grid" class="results-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p id="loading-text">正在加载 OpenCV.js...</p>
+    </div>
+
+    <script src="https://docs.opencv.org/4.9.0/opencv.js" async onload="onOpenCVReady()"></script>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/ort.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="detector.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
