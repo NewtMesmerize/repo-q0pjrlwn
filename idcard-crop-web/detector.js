@@ -52,61 +52,169 @@ class IDCardDetector {
         const resized = new cv.Mat();
         cv.resize(src, resized, new cv.Size(size, size));
 
-        // Convert RGBA to RGB float32
         const rgb = new cv.Mat();
         cv.cvtColor(resized, rgb, cv.COLOR_RGBA2RGB);
 
-        // ImageNet normalization: (pixel/255 - mean) / std
         const mean = [0.485, 0.456, 0.406];
         const std = [0.229, 0.224, 0.225];
         const inputData = new Float32Array(3 * size * size);
         const data = rgb.data;
         for (let i = 0; i < size * size; i++) {
-            inputData[i] = (data[i * 3] / 255.0 - mean[0]) / std[0];                     // R
-            inputData[size * size + i] = (data[i * 3 + 1] / 255.0 - mean[1]) / std[1];   // G
-            inputData[2 * size * size + i] = (data[i * 3 + 2] / 255.0 - mean[2]) / std[2]; // B
+            inputData[i] = (data[i * 3] / 255.0 - mean[0]) / std[0];
+            inputData[size * size + i] = (data[i * 3 + 1] / 255.0 - mean[1]) / std[1];
+            inputData[2 * size * size + i] = (data[i * 3 + 2] / 255.0 - mean[2]) / std[2];
         }
 
         resized.delete();
         rgb.delete();
 
         try {
-            // Run inference
             const inputTensor = new ort.Tensor('float32', inputData, [1, 3, size, size]);
             const inputName = this.model.inputNames[0];
             const outputName = this.model.outputNames[0];
             const results = await this.model.run({ [inputName]: inputTensor });
             const output = results[outputName];
-
-            // Convert output to mask (output is already in [0,1] range after sigmoid)
             const maskData = output.data;
-            const mask = new cv.Mat(size, size, cv.CV_8UC1);
-            for (let i = 0; i < size * size; i++) {
-                const val = maskData[i];
-                mask.data[i] = val > 0.5 ? 255 : 0;
+
+            // Try multiple thresholds: higher thresholds produce tighter masks
+            // that better separate card from hand/background objects
+            let bestResult = null;
+            for (const threshold of [0.7, 0.6, 0.5]) {
+                const mask = new cv.Mat(size, size, cv.CV_8UC1);
+                for (let i = 0; i < size * size; i++) {
+                    mask.data[i] = maskData[i] > threshold ? 255 : 0;
+                }
+
+                const fullMask = new cv.Mat();
+                cv.resize(mask, fullMask, new cv.Size(w, h));
+                mask.delete();
+
+                // Morphological cleanup
+                const kSize = Math.max(5, Math.round(Math.min(w, h) / 100));
+                const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(kSize, kSize));
+                cv.morphologyEx(fullMask, fullMask, cv.MORPH_CLOSE, kernel, new cv.Point(-1, -1), 3);
+                cv.morphologyEx(fullMask, fullMask, cv.MORPH_OPEN, kernel, new cv.Point(-1, -1), 2);
+
+                // Extra erosion to separate card from connected hand/objects
+                const erodeK = Math.max(3, Math.round(Math.min(w, h) / 80));
+                const erodeKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(erodeK, erodeK));
+                const erodedMask = new cv.Mat();
+                cv.erode(fullMask, erodedMask, erodeKernel);
+
+                // Find connected components and pick best card-like region
+                const cardMask = this._selectCardComponent(erodedMask, fullMask, w, h);
+                erodeKernel.delete();
+                erodedMask.delete();
+                kernel.delete();
+
+                const result = this._findBestContour(cardMask, src);
+                cardMask.delete();
+                fullMask.delete();
+
+                if (result && (!bestResult || result.score > bestResult.score)) {
+                    bestResult = result;
+                }
+                // If we found a good result at this threshold, stop
+                if (bestResult && bestResult.score >= 30) break;
             }
 
-            // Resize mask back to original size
-            const fullMask = new cv.Mat();
-            cv.resize(mask, fullMask, new cv.Size(w, h));
-            mask.delete();
-
-            // Clean up mask with morphological operations
-            const kSize = Math.max(5, Math.round(Math.min(w, h) / 100));
-            const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(kSize, kSize));
-            cv.morphologyEx(fullMask, fullMask, cv.MORPH_CLOSE, kernel, new cv.Point(-1, -1), 3);
-            cv.morphologyEx(fullMask, fullMask, cv.MORPH_OPEN, kernel, new cv.Point(-1, -1), 2);
-            kernel.delete();
-
-            // Find contour on mask
-            const result = this._findBestContour(fullMask, src);
-            fullMask.delete();
-
-            return result;
+            return bestResult;
         } catch (e) {
             console.warn('Model inference failed:', e.message);
             return null;
         }
+    }
+
+    /**
+     * Select the most card-like connected component from eroded mask,
+     * then recover its full extent from the original mask.
+     */
+    _selectCardComponent(erodedMask, originalMask, w, h) {
+        const labels = new cv.Mat();
+        const stats = new cv.Mat();
+        const centroids = new cv.Mat();
+        const numLabels = cv.connectedComponentsWithStats(erodedMask, labels, stats, centroids);
+
+        if (numLabels <= 1) {
+            // No components found after erosion, use original mask
+            labels.delete(); stats.delete(); centroids.delete();
+            const result = new cv.Mat();
+            originalMask.copyTo(result);
+            return result;
+        }
+
+        // Score each component for card-likeness
+        let bestLabel = -1;
+        let bestScore = -1;
+        const imgArea = w * h;
+
+        for (let i = 1; i < numLabels; i++) {
+            const compArea = stats.intAt(i, cv.CC_STAT_AREA);
+            const compW = stats.intAt(i, cv.CC_STAT_WIDTH);
+            const compH = stats.intAt(i, cv.CC_STAT_HEIGHT);
+
+            // Skip tiny components
+            if (compArea < imgArea * 0.03) continue;
+
+            const ratio = Math.max(compW, compH) / Math.max(1, Math.min(compW, compH));
+            const ratioDiff = Math.abs(ratio - 1.585);
+            const compactness = compArea / (compW * compH);
+
+            let score = 0;
+            // Prefer aspect ratio close to 1.585:1
+            if (ratioDiff < 0.15) score += 30;
+            else if (ratioDiff < 0.3) score += 20;
+            else if (ratioDiff < 0.5) score += 10;
+            else score -= 10;
+
+            // Prefer compact (rectangular) shapes
+            if (compactness > 0.6) score += 15;
+            else if (compactness > 0.4) score += 10;
+
+            // Prefer larger components (more likely to be the card)
+            score += Math.min(20, (compArea / imgArea) * 100);
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestLabel = i;
+            }
+        }
+
+        if (bestLabel < 0) {
+            // No good component found, use original mask
+            labels.delete(); stats.delete(); centroids.delete();
+            const result = new cv.Mat();
+            originalMask.copyTo(result);
+            return result;
+        }
+
+        // Create mask for just the selected component's region,
+        // but use the original (pre-erosion) mask pixels within that region
+        // to recover the full card extent
+        const componentMask = new cv.Mat(h, w, cv.CV_8UC1, new cv.Scalar(0));
+        const lx = stats.intAt(bestLabel, cv.CC_STAT_LEFT);
+        const ly = stats.intAt(bestLabel, cv.CC_STAT_TOP);
+        const lw = stats.intAt(bestLabel, cv.CC_STAT_WIDTH);
+        const lh = stats.intAt(bestLabel, cv.CC_STAT_HEIGHT);
+
+        // Expand the bounding box slightly to recover eroded pixels
+        const margin = Math.round(Math.min(w, h) / 40);
+        const rx1 = Math.max(0, lx - margin);
+        const ry1 = Math.max(0, ly - margin);
+        const rx2 = Math.min(w, lx + lw + margin);
+        const ry2 = Math.min(h, ly + lh + margin);
+
+        // Copy original mask pixels within expanded component bounds
+        for (let y = ry1; y < ry2; y++) {
+            for (let x = rx1; x < rx2; x++) {
+                if (originalMask.ucharAt(y, x) > 0) {
+                    componentMask.data[y * w + x] = 255;
+                }
+            }
+        }
+
+        labels.delete(); stats.delete(); centroids.delete();
+        return componentMask;
     }
 
     /**
@@ -350,31 +458,39 @@ class IDCardDetector {
 
         for (const info of contourInfos.slice(0, 10)) {
             const cnt = contours.get(info.index);
-            const peri = cv.arcLength(cnt, true);
 
-            // Try approxPolyDP with various epsilon
-            for (const epsMult of [0.015, 0.02, 0.025, 0.03, 0.04, 0.05, 0.06]) {
-                const approx = new cv.Mat();
-                cv.approxPolyDP(cnt, approx, epsMult * peri, true);
+            // Try both raw contour and convex hull
+            const hull = new cv.Mat();
+            cv.convexHull(cnt, hull);
+            const sources = [cnt, hull];
 
-                if (approx.rows === 4) {
-                    const pts = [];
-                    for (let j = 0; j < 4; j++) {
-                        pts.push([approx.data32S[j * 2], approx.data32S[j * 2 + 1]]);
-                    }
-                    const score = this._scoreCandidate(pts, srcImg);
-                    if (score > 0) {
-                        candidates.push({ corners: this._orderPoints(pts), score: score });
+            for (const source of sources) {
+                const peri = cv.arcLength(source, true);
+
+                // Try approxPolyDP with various epsilon
+                for (const epsMult of [0.015, 0.02, 0.025, 0.03, 0.04, 0.05, 0.06]) {
+                    const approx = new cv.Mat();
+                    cv.approxPolyDP(source, approx, epsMult * peri, true);
+
+                    if (approx.rows === 4) {
+                        const pts = [];
+                        for (let j = 0; j < 4; j++) {
+                            pts.push([approx.data32S[j * 2], approx.data32S[j * 2 + 1]]);
+                        }
+                        const score = this._scoreCandidate(pts, srcImg);
+                        if (score > 0) {
+                            candidates.push({ corners: this._orderPoints(pts), score: score });
+                        }
+                        approx.delete();
+                        break;
                     }
                     approx.delete();
-                    break;
                 }
-                approx.delete();
             }
 
-            // Try minAreaRect as fallback
+            // Try minAreaRect on convex hull as fallback
             if (info.area > minArea * 1.5) {
-                const rect = cv.minAreaRect(cnt);
+                const rect = cv.minAreaRect(hull);
                 const rectW = rect.size.width;
                 const rectH = rect.size.height;
                 if (rectW > 0 && rectH > 0) {
@@ -389,6 +505,8 @@ class IDCardDetector {
                     }
                 }
             }
+
+            hull.delete();
         }
 
         contours.delete();
